@@ -9,7 +9,8 @@ const DB= process.env.DATABASE.replace('<PASSWORD>', process.env.DATABASE_PASSWO
 mongoose.connect(DB, {
   useNewUrlParser: true,
   useCreateIndex: true,
-  useFindAndModify: false
+  useFindAndModify: false,
+  useUnifiedTopology: true //Añadido porque me salía un DeprecationWarning
 }).then(() => console.log('DB connection successful'));
 
 const port= process.env.PORT || 8000;
