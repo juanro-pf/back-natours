@@ -1,6 +1,8 @@
 const express= require('express');
 const morgan= require('morgan');
 
+const AppError= require('./utils/appError');
+const globalErrorHandler= require('./controllers/errorController');
 const tourRouter= require('./routes/tourRoutes');
 const userRouter= require('./routes/userRoutes');
 
@@ -19,15 +21,16 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use((req, res, next) => {
-  console.log('Hello from the meddleware');
-  console.log(`Time: ${req.requestTime}`);
-  next();
-});
-
 // Routes
 
 app.use('/api/v1/tours', tourRouter);
 app.use('/api/v1/users', userRouter);
+
+app.all('*', (req, res, next) => {
+  next(new AppError(`Can't find ${req.originalUrl} on this server`, 404)); // Cualquier argumento que le pases al next lo toma como error
+  // Si se llama el next con error se pasa directo al middleware que maneja el error (4 argumentos)
+});
+
+app.use(globalErrorHandler);
 
 module.exports= app;
