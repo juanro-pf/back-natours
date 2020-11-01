@@ -1,3 +1,4 @@
+const crypto= require('crypto');
 const { promisify }= require('util');
 const jwt= require('jsonwebtoken');
 const User= require('../models/userModel');
@@ -11,6 +12,28 @@ const signToken= id => {
   });
 };
 
+const createSendToken= (user, statusCode, res) => {
+  const token= signToken(user._id);
+  const cookieOptions= {
+    expires: new Date(Date.now() + process.env.JWT_COOKIE_EXPIRES_IN * 24 * 60 * 60 * 1000),
+    httpOnly: true
+  };
+  if(process.env.NODE_ENV === 'production') cookieOptions.secure= true;
+
+  res.cookie('jwt', token, cookieOptions);
+
+  // Remove password from output
+  user.password= undefined;
+
+  res.status(statusCode).json({
+    status: 'success',
+    token,
+    data: {
+      user
+    }
+  });
+};
+
 const signUp= catchAsync(async (req, res, next) => {
   const newUser= await User.create({
     name: req.body.name,
@@ -19,15 +42,7 @@ const signUp= catchAsync(async (req, res, next) => {
     passwordConfirm: req.body.passwordConfirm,
   });
 
-  const token= signToken(newUser._id);
-
-  res.status(201).json({
-    status: 'success',
-    token,
-    data: {
-      user: newUser
-    }
-  });
+  createSendToken(newUser, 201, res);
 });
 
 const login= catchAsync(async(req, res, next) => {
@@ -46,11 +61,7 @@ const login= catchAsync(async(req, res, next) => {
   }
 
   // 3) If everything is OK send the token
-  const token= signToken(user._id);
-  res.status(200).json({
-    status: 'success',
-    token
-  });
+  createSendToken(user, 200, res);
 });
 
 const protect= catchAsync(async (req, res, next) => {
@@ -129,9 +140,46 @@ const forgotPassword= catchAsync(async (req, res, next) => {
   }
 });
 
-const resetPassword= (req, res, next) => {
+const resetPassword= catchAsync(async (req, res, next) => {
+  // 1) Get user based on the token
+  const hashedToken= crypto.createHash('sha256').update(req.params.token).digest('hex');
 
-};
+  const user= await User.findOne({ passwordResetToken: hashedToken, passwordResetExpires: { $gt: Date.now() } });
+
+  // 2) If token has not expired and there is user, set the new password
+  if(!user) {
+    return next(new AppError('Token is invalid or has expired', 400));
+  }
+  user.password= req.body.password;
+  user.passwordConfirm= req.body.passwordConfirm;
+  user.passwordResetToken= undefined;
+  user.passwordResetExpires= undefined;
+  await user.save(); // Save to run the validators
+
+  // 3) Update changedPasswordAt property for the user
+  // userModel pre
+
+  // 4) Log the user in, send JWT
+  createSendToken(user, 200, res);
+});
+
+const updatePassword= catchAsync(async (req, res, next) => {
+  // 1) Get user from collection
+  const user= await User.findById(req.user.id).select('+password');
+
+  // 2) Check if POSTed current password is correct
+  if(!await user.correctPassword(req.body.currentPassword, user.password)) {
+    return next(new AppError('Incorrect current password', 401));
+  }
+
+  // 3) If so, update password
+  user.password= req.body.password;
+  user.passwordConfirm= req.body.passwordConfirm;
+  await user.save(); // Save to run the validators
+
+  // 4) Log user in, send JWT
+  createSendToken(user, 200, res);
+});
 
 module.exports= {
   signUp,
@@ -139,5 +187,6 @@ module.exports= {
   protect,
   restrictTo,
   forgotPassword,
-  resetPassword
+  resetPassword,
+  updatePassword
 };
