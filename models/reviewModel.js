@@ -29,6 +29,18 @@ const reviewSchema= new Schema({
   toObject: { virtuals: true }
 });
 
+reviewSchema.pre(/^find/, function(next) {
+  this.populate({
+    path: 'user',
+    select: 'name photo'
+  })
+  // .populate({
+  //   path: 'tour',
+  //   select: 'name'
+  // });
+  next();
+});
+
 const Review= model('Review', reviewSchema);
 
 module.exports= Review;
