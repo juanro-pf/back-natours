@@ -5,6 +5,7 @@ const User= require('../models/userModel');
 const catchAsync = require('../utils/catchAsync');
 const AppError= require('../utils/appError');
 const sendEmail = require('../utils/email');
+const { response } = require('../app');
 
 const signToken= id => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
@@ -64,12 +65,25 @@ const login= catchAsync(async(req, res, next) => {
   createSendToken(user, 200, res);
 });
 
+const logout= (req, res) => {
+  res.cookie('jwt', 'loggedout', {
+    expires: new Date(Date.now() + 10 * 1000),
+    httpOnly: true
+  });
+  res.status(200).json({
+    status: 'success'
+  });
+};
+
 const protect= catchAsync(async (req, res, next) => {
   let token;
   // 1) Get the token and check if it is there
   if(req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
     token= req.headers.authorization.split(' ')[1];
+  } else if(req.cookies.jwt) {
+    token= req.cookies.jwt;
   }
+
   // console.log(token);
   if(!token) {
     return next(new AppError('Please log in to get access', 401));
@@ -91,8 +105,39 @@ const protect= catchAsync(async (req, res, next) => {
 
   // Grant access to protected route
   req.user= freshUser;
+  res.locals.user= freshUser;
   next();
 });
+
+// Only for rendered pager, no errors!
+const isLoggedIn= async (req, res, next) => {
+  let token;
+  // 1) Get the token and check if it is there
+  if(req.cookies.jwt) {
+    try {
+      // 1) Verify token
+      const decoded= await promisify(jwt.verify)(req.cookies.jwt, process.env.JWT_SECRET);
+    
+      // 2) Check if user still exists
+      const freshUser= await User.findById(decoded.id);
+      if(!freshUser) {
+        return next();
+      }
+    
+      // 3) Check if user changed password after the jwt was issued
+      if(freshUser.changedPasswordAfter(decoded.iat)) {
+        return next();
+      }
+    
+      // There is a logged in user
+      res.locals.user= freshUser;
+      return next();
+    } catch (error) {
+      return next();
+    }
+  }
+  next();
+};
 
 const restrictTo= (...roles) => {
   return (req, res, next) => {
@@ -188,5 +233,7 @@ module.exports= {
   restrictTo,
   forgotPassword,
   resetPassword,
-  updatePassword
+  updatePassword,
+  isLoggedIn,
+  logout
 };
