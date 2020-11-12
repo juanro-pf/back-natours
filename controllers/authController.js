@@ -176,9 +176,7 @@ const forgotPassword= catchAsync(async (req, res, next) => {
     //   subject: 'Your password reset token (valid for 10 min).',
     //   message,
     // });
-    console.log('1');
     await new Email(user, resetURL).sendPasswordReset();
-    console.log('2');
   
     res.status(200).json({
       status: 'success',

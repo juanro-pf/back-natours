@@ -71,7 +71,6 @@ exports.updateUserData= catchAsync(async (req, res, next) => {
     runValidators: true
   });
 
-  console.log(updatedUser);
   res.status(200).render('account', {
     title: 'Your account',
     user: updatedUser
