@@ -74,5 +74,5 @@ if(bookBtn) {
   });
 }
 
-const alertMessage= document.querySelector('body').dataset.alert;
+const alertMessage= document.querySelector('body').dataset.data-alert;
 if(alertMessage) showAlert('success', alertMessage, 10);
