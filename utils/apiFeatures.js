@@ -57,7 +57,7 @@ class APIFeatures {
 
 module.exports= APIFeatures;
 
-// Antes de APIFeatures, getAllTours estaba asi:
+// Before APIFeatures, getAllTours was like this:
 /*
 const getAllTours= async (req, res) => {
   try {

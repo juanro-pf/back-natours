@@ -12,7 +12,7 @@ mongoose.connect(DB, {
   useNewUrlParser: true,
   useCreateIndex: true,
   useFindAndModify: false,
-  useUnifiedTopology: true //Añadido porque me salía un DeprecationWarning
+  useUnifiedTopology: true //Added because of DeprecationWarning
 }).then(() => console.log('DB connection successful'));
 
 // READ JSON FILE
